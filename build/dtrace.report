@@ -1,0 +1,136 @@
+20080703 23:58:16 Testing started...
+20080703 23:58:16 File: demo/act/time.d
+20080703 23:58:16 File: demo/agg/clear.d
+dtrace: failed to compile script demo/agg/clear.d: line 1: closing ) expected in predicate before /
+20080703 23:58:16 File: demo/agg/dateprof.d
+dtrace: failed to compile script demo/agg/dateprof.d: line 1: closing ) expected in predicate before /
+20080703 23:58:16 File: demo/agg/denorm.d
+dtrace: failed to compile script demo/agg/denorm.d: line 1: syntax error near "/"
+20080703 23:58:16 File: demo/agg/lquantize.d
+20080703 23:58:16 File: demo/agg/normalize.d
+dtrace: failed to compile script demo/agg/normalize.d: line 1: closing ) expected in predicate before /
+20080703 23:58:16 File: demo/agg/renormalize.d
+dtrace: failed to compile script demo/agg/renormalize.d: line 1: closing ) expected in predicate before /
+20080703 23:58:16 File: demo/agg/trunc.d
+dtrace: failed to compile script demo/agg/trunc.d: line 1: closing ) expected in predicate before /
+20080703 23:58:16 File: demo/agg/writes.d
+20080703 23:58:16 File: demo/agg/writesbycmd.d
+20080703 23:58:16 File: demo/agg/writesbycmdfd.d
+20080703 23:58:16 File: demo/agg/writetime.d
+20080703 23:58:16 File: demo/agg/writetimeq.d
+20080703 23:58:16 File: demo/anon/iprb.d
+20080703 23:58:16 File: demo/buf/ring.d
+dtrace: failed to compile script demo/buf/ring.d: line 1: macro argument $1 is not defined
+20080703 23:58:16 File: demo/dtrace/begin.d
+20080703 23:58:16 File: demo/dtrace/end.d
+dtrace: failed to compile script demo/dtrace/end.d: line 1: closing ) expected in predicate before /
+20080703 23:58:16 File: demo/dtrace/error.d
+20080703 23:58:16 File: demo/fbt/delay.d
+20080703 23:58:16 File: demo/fbt/putnext.d
+dtrace: failed to compile script demo/fbt/putnext.d: line 1: args[ ] may not be referenced because probe description fbt::putnext:entry matches an unstable set of probes
+20080703 23:58:16 File: demo/fbt/ssd.d
+dtrace: failed to compile script demo/fbt/ssd.d: line 1: failed to resolve EIO: Unknown variable name
+20080703 23:58:16 File: demo/fbt/xioctl.d
+20080703 23:58:16 File: demo/intro/countdown.d
+20080703 23:58:16 File: demo/intro/counter.d
+20080703 23:58:16 File: demo/intro/hello.d
+20080703 23:58:16 File: demo/intro/rwtime.d
+dtrace: failed to compile script demo/intro/rwtime.d: line 1: macro argument $1 is not defined
+20080703 23:58:16 File: demo/intro/trussrw.d
+dtrace: failed to compile script demo/intro/trussrw.d: line 1: macro argument $1 is not defined
+20080703 23:58:16 File: demo/io/applicat.d
+dtrace: failed to compile script demo/io/applicat.d: line 1: closing ) expected in predicate before /
+20080703 23:58:16 File: demo/io/iocpu.d
+dtrace: failed to compile script demo/io/iocpu.d: line 1: args[ ] may not be referenced because probe description io:::wait-done matches an unstable set of probes
+20080703 23:58:16 File: demo/io/iosnoop.d
+dtrace: failed to compile script demo/io/iosnoop.d: line 1: args[ ] may not be referenced because probe description io:::start matches an unstable set of probes
+20080703 23:58:16 File: demo/io/iothrough.d
+dtrace: failed to compile script demo/io/iothrough.d: line 1: closing ) expected in predicate before /
+20080703 23:58:16 File: demo/io/iotime.d
+dtrace: failed to compile script demo/io/iotime.d: line 1: closing ) expected in predicate before /
+20080703 23:58:16 File: demo/io/whoio.d
+dtrace: failed to compile script demo/io/whoio.d: line 1: args[ ] may not be referenced because probe description io:::start matches an unstable set of probes
+20080703 23:58:16 File: demo/io/whowrite.d
+dtrace: failed to compile script demo/io/whowrite.d: line 1: args[ ] may not be referenced because probe description io:::start matches an unstable set of probes
+20080703 23:58:16 File: demo/lockstat/whatlock.d
+20080703 23:58:16 File: demo/out/printa.d
+20080703 23:58:16 File: demo/proc/lwptime.d
+20080703 23:58:16 File: demo/proc/progtime.d
+20080703 23:58:16 File: demo/proc/sig.d
+dtrace: failed to compile script demo/proc/sig.d: line 1: args[ ] may not be referenced because probe description proc:::signal-send matches an unstable set of probes
+20080703 23:58:16 File: demo/proc/whoexec.d
+20080703 23:58:16 File: demo/profile/prof.d
+20080703 23:58:16 File: demo/profile/profpri.d
+dtrace: failed to compile script demo/profile/profpri.d: line 1: macro argument $1 is not defined
+20080703 23:58:16 File: demo/profile/restest.d
+dtrace: failed to compile script demo/profile/restest.d: line 1: closing ) expected in predicate before /
+20080703 23:58:16 File: demo/sched/firebird.d
+dtrace: failed to compile script demo/sched/firebird.d: line 1: failed to resolve curlwpsinfo: Unknown variable name
+20080703 23:58:16 File: demo/sched/howlong.d
+dtrace: failed to compile script demo/sched/howlong.d: line 1: closing ) expected in predicate before /
+20080703 23:58:16 File: demo/sched/nscd.d
+dtrace: failed to compile script demo/sched/nscd.d: line 1: failed to resolve curlwpsinfo: Unknown variable name
+20080703 23:58:16 File: demo/sched/pri.d
+dtrace: failed to compile script demo/sched/pri.d: line 1: args[ ] may not be referenced because probe description sched:::change-pri matches an unstable set of probes
+20080703 23:58:16 File: demo/sched/pritime.d
+dtrace: failed to compile script demo/sched/pritime.d: line 1: macro argument $1 is not defined
+20080703 23:58:16 File: demo/sched/qlen.d
+dtrace: failed to compile script demo/sched/qlen.d: line 1: args[ ] may not be referenced because probe description sched:::enqueue matches an unstable set of probes
+20080703 23:58:16 File: demo/sched/qtime.d
+dtrace: failed to compile script demo/sched/qtime.d: line 1: args[ ] may not be referenced because probe description sched:::dequeue matches an unstable set of probes
+20080703 23:58:16 File: demo/sched/tick.d
+dtrace: failed to compile script demo/sched/tick.d: line 1: closing ) expected in predicate before /
+20080703 23:58:16 File: demo/sched/ticktime.d
+dtrace: failed to compile script demo/sched/ticktime.d: line 1: failed to resolve cpu: Unknown variable name
+20080703 23:58:16 File: demo/sched/whatfor.d
+dtrace: failed to compile script demo/sched/whatfor.d: line 1: failed to resolve curlwpsinfo: Unknown variable name
+20080703 23:58:16 File: demo/sched/where.d
+dtrace: failed to compile script demo/sched/where.d: line 1: failed to resolve cpu: Unknown variable name
+20080703 23:58:16 File: demo/sched/whererun.d
+dtrace: failed to compile script demo/sched/whererun.d: line 1: macro argument $$1 is not defined
+20080703 23:58:16 File: demo/sched/whofor.d
+dtrace: failed to compile script demo/sched/whofor.d: line 1: failed to resolve curlwpsinfo: Unknown variable name
+20080703 23:58:16 File: demo/sched/whopreempt.d
+dtrace: failed to compile script demo/sched/whopreempt.d: line 1: args[ ] may not be referenced because probe description sched:::off-cpu matches an unstable set of probes
+20080703 23:58:16 File: demo/sched/whoqueue.d
+dtrace: failed to compile script demo/sched/whoqueue.d: line 1: args[ ] may not be referenced because probe description sched:::enqueue matches an unstable set of probes
+20080703 23:58:16 File: demo/sched/whosteal.d
+dtrace: failed to compile script demo/sched/whosteal.d: line 1: args[ ] may not be referenced because probe description sched:::dequeue matches an unstable set of probes
+20080703 23:58:16 File: demo/sched/xterm.d
+dtrace: failed to compile script demo/sched/xterm.d: line 1: closing ) expected in predicate before /
+20080703 23:58:16 File: demo/sched/xwork.d
+dtrace: failed to compile script demo/sched/xwork.d: line 1: args[ ] may not be referenced because probe description sched:::wakeup matches an unstable set of probes
+20080703 23:58:16 File: demo/script/interp.d
+20080703 23:58:16 File: demo/script/syscall.d
+20080703 23:58:16 File: demo/script/tracewrite.d
+dtrace: failed to compile script demo/script/tracewrite.d: line 1: macro argument $1 is not defined
+20080703 23:58:16 File: demo/sdt/callout.d
+dtrace: failed to compile script demo/sdt/callout.d: line 1: syntax error near ")"
+20080703 23:58:16 File: demo/sdt/interval.d
+dtrace: failed to compile script demo/sdt/interval.d: line 1: syntax error near ")"
+20080703 23:58:16 File: demo/sdt/intr.d
+dtrace: failed to compile script demo/sdt/intr.d: line 1:  has not yet been declared or assigned
+20080703 23:58:16 File: demo/spec/spec.d
+20080703 23:58:16 File: demo/spec/specopen.d
+20080703 23:58:16 File: demo/struct/kstat.d
+dtrace: failed to compile script demo/struct/kstat.d: line 1: invalid probe description "pid$1:libkstat:kstat_data_lookup:entry": Undefined macro variable in probe description
+20080703 23:58:16 File: demo/struct/ksyms.d
+dtrace: failed to compile script demo/struct/ksyms.d: line 1: failed to resolve curpsinfo: Unknown variable name
+20080703 23:58:16 File: demo/struct/rwinfo.d
+dtrace: failed to compile script demo/struct/rwinfo.d: line 1: macro argument $1 is not defined
+20080703 23:58:16 File: demo/sysinfo/find.d
+20080703 23:58:16 File: demo/user/badopen.d
+dtrace: failed to compile script demo/user/badopen.d: line 1: macro argument $1 is not defined
+20080703 23:58:16 File: demo/user/errorpath.d
+dtrace: failed to compile script demo/user/errorpath.d: line 1: invalid probe description "pid$1::$2:entry": Undefined macro variable in probe description
+20080703 23:58:16 File: demo/user/libc.d
+dtrace: failed to compile script demo/user/libc.d: line 1: 'pid0' does not contain a valid pid
+20080703 23:58:16 File: demo/user/userfunc.d
+dtrace: failed to compile script demo/user/userfunc.d: line 1: invalid probe description "pid$1::$2:entry": Undefined macro variable in probe description
+20080703 23:58:16 File: demo/vars/clause.d
+20080703 23:58:16 File: demo/vars/rtime.d
+20080703 23:58:16 File: demo/vminfo/soffice.d
+dtrace: failed to compile script demo/vminfo/soffice.d: line 1: closing ) expected in predicate before /
+20080703 23:58:16 Testing completed. See build/dtrace.report for details
+Files tested   : 80
+Errors detected: 52
