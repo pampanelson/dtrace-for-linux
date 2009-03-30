@@ -27,11 +27,12 @@
 #include <linux/thread_info.h>
 #include <linux/smp.h>
 #include <linux/vmalloc.h>
+#include <asm/tlbflush.h>
 #include <asm/current.h>
 #include <sys/rwlock.h>
 #include <sys/privregs.h>
-#include <asm/pgtable.h>
-#include <asm/pgalloc.h>
+//#include <asm/pgtable.h>
+//#include <asm/pgalloc.h>
 
 MODULE_AUTHOR("Paul D. Fox");
 MODULE_LICENSE("CDDL");
@@ -106,9 +107,18 @@ static void **xsys_call_table;
 
 uintptr_t	_userlimit = 0x7fffffff;
 uintptr_t kernelbase = 0; //_stext;
+
+/**********************************************************************/
+/*   The  kernel  can be compiled with a lot of potential CPUs, e.g.  */
+/*   64  is  not  untypical,  but  we  only have a dual core cpu. We  */
+/*   allocate  buffers  for each cpu - which can mushroom the memory  */
+/*   needed  (4MB+  per  core), and can OOM for small systems or put  */
+/*   other systems into mortal danger as we eat all the memory.	      */
+/**********************************************************************/
 cpu_t	*cpu_list;
-cpu_core_t cpu_core[CONFIG_NR_CPUS];
-cpu_t cpu_table[NCPU];
+cpu_core_t *cpu_core;
+cpu_t *cpu_table;
+int	nr_cpus = 1;
 DEFINE_MUTEX(mod_lock);
 
 static DEFINE_MUTEX(dtrace_provider_lock);	/* provider state lock */
@@ -173,6 +183,7 @@ int	sdt_init(void);
 void	sdt_exit(void);
 int	systrace_init(void);
 void	systrace_exit(void);
+static void print_pte(pte_t *pte, int level);
 
 cred_t *
 CRED()
@@ -757,6 +768,106 @@ validate_ptr(const void *ptr)
 
 	return ret;
 }
+# if defined(__amd64)
+typedef struct page_perms_t {
+	int	pp_valid;
+	unsigned long pp_addr;
+	pgd_t	pp_pgd;
+	pud_t	pp_pud;
+	pmd_t	pp_pmd;
+	pte_t	pp_pte;
+	} page_perms_t;
+/**********************************************************************/
+/*   Set  a memory page to be writable, so we can patch it. Save the  */
+/*   info so we can undo the changes afterwards. This is for x86-64,  */
+/*   since  it  has  a 4 level page table. Every part of the walk to  */
+/*   the  final PTE needs to be writable, not just the entry itself.  */
+/*   Reference:							      */
+/*   http://www.intel.com/design/processor/applnots/317080.pdf	      */
+/**********************************************************************/
+static int
+mem_set_writable(unsigned long addr, page_perms_t *pp)
+{
+	pgd_t *pgd = pgd_offset_k(addr);
+	pud_t *pud;
+	pmd_t *pmd;
+	pte_t *pte;
+	int dump_tree = FALSE;
+
+	pp->pp_valid = FALSE;
+	pp->pp_addr = addr;
+
+	if (pgd_none(*pgd)) {
+//		printk("yy: pgd=%lx\n", *pgd);
+		return 0;
+	}
+	pud = pud_offset(pgd, addr);
+	if (pud_none(*pud)) {
+//		printk("yy: pud=%lx\n", *pud);
+		return 0;
+	}
+	pmd = pmd_offset(pud, addr);
+	if (pmd_none(*pmd)) {
+//		printk("yy: pmd=%lx\n", *pmd);
+		return 0;
+	}
+	pte = pte_offset_kernel(pmd, addr);
+	if (dump_tree) {
+		printk("yy -- begin\n");
+		print_pte((pte_t *) pgd, 0);
+		print_pte((pte_t *) pmd, 1);
+		print_pte((pte_t *) pud, 2);
+		print_pte(pte, 3);
+		printk("yy -- end\n");
+	}
+
+	pp->pp_valid = TRUE;
+	pp->pp_pgd = *pgd;
+	pp->pp_pud = *pud;
+	pp->pp_pmd = *pmd;
+	pp->pp_pte = *pte;
+
+	/***********************************************/
+	/*   We only need to set these two, for now.   */
+	/***********************************************/
+	pmd->pmd |= _PAGE_RW;
+	pte->pte |= _PAGE_RW;
+
+	clflush(pmd);
+	clflush(pte);
+	return 1;
+}
+/**********************************************************************/
+/*   Undo  the  patching of the page table entries after making them  */
+/*   writable.							      */
+/**********************************************************************/
+# if 0 /* not used yet ... */
+static int
+mem_unset_writable(page_perms_t *pp)
+{	pgd_t *pgd;
+	pud_t *pud;
+	pmd_t *pmd;
+	pte_t *pte;
+
+	if (!pp->pp_valid)
+		return FALSE;
+
+	pgd = pgd_offset_k(pp->pp_addr);
+	pud = pud_offset(pgd, pp->pp_addr);
+	pmd = pmd_offset(pud, pp->pp_addr);
+	pte = pte_offset_kernel(pmd, pp->pp_addr);
+
+	*pgd = pp->pp_pgd;
+	*pud = pp->pp_pud;
+	*pmd = pp->pp_pmd;
+	*pte = pp->pp_pte;
+
+	clflush(pmd);
+	clflush(pte);
+	return TRUE;
+}
+# endif
+# endif
 /**********************************************************************/
 /*   i386:							      */
 /*   Set  an  address  to be writeable. Need this because kernel may  */
@@ -778,8 +889,7 @@ memory_set_rw(void *addr, int num_pages, int is_kernel_addr)
 	pte_t *pte;
 
 static pte_t *(*lookup_address)(void *, int *);
-static void (*flush_tlb_all)(void);
-
+//static void (*flush_tlb_all)(void);
 
 	if (lookup_address == NULL)
 		lookup_address = get_proc_addr("lookup_address");
@@ -789,12 +899,6 @@ static void (*flush_tlb_all)(void);
 		}
 
 	pte = lookup_address(addr, &level);
-/*
-printk("pte: level=%d %lx %s %s\n",
-	level, (long) pte_val(*pte), 
-	pte_val(*pte) & _PAGE_RW ? "RW" : "RO",
-	pte_val(*pte) & _PAGE_USER ? "USER" : "KERNEL");
-*/
 	if ((pte_val(*pte) & _PAGE_RW) == 0) {
 # if defined(__i386) && LINUX_VERSION_CODE <= KERNEL_VERSION(2, 6, 24)
 			pte->pte_low |= _PAGE_RW;
@@ -810,11 +914,12 @@ printk("pte: level=%d %lx %s %s\n",
 		/*   available,   we   are   pretty  much  in  */
 		/*   trouble.				       */
 		/***********************************************/
-		if (flush_tlb_all == NULL)
-			flush_tlb_all = get_proc_addr("flush_tlb_all");
-		if (flush_tlb_all)
-			flush_tlb_all();
-		}
+		__flush_tlb_all();
+	}
+# else
+	page_perms_t perms;
+
+	mem_set_writable((unsigned long) addr, &perms);
 # endif
 	return 1;
 }
@@ -1007,6 +1112,27 @@ par_setup_thread2()
 	return par_find_thread(get_current());
 }
 /**********************************************************************/
+/*   For debugging...						      */
+/**********************************************************************/
+static void
+print_pte(pte_t *pte, int level)
+{
+	printk("pte: %p level=%d %p %s%s%s%s%s%s%s%s%s\n",
+		pte,
+		level, (long *) pte_val(*pte), 
+		pte_val(*pte) & _PAGE_NX ? "NX " : "",
+		pte_val(*pte) & _PAGE_RW ? "RW " : "RO ",
+		pte_val(*pte) & _PAGE_USER ? "USER " : "KERNEL ",
+		pte_val(*pte) & _PAGE_GLOBAL ? "GLOBAL " : "",
+		pte_val(*pte) & _PAGE_PRESENT ? "Present " : "",
+		pte_val(*pte) & _PAGE_PWT ? "Writethru " : "",
+		pte_val(*pte) & _PAGE_PSE ? "4/2MB " : "",
+		pte_val(*pte) & _PAGE_PAT ? "PAT " : "",
+		pte_val(*pte) & _PAGE_PAT_LARGE ? "PAT_LARGE " : ""
+
+		);
+}
+/**********************************************************************/
 /*   Call on proc exit, so we can detach ourselves from the proc. We  */
 /*   may  have  a  USDT  enabled app dying, so we need to remove the  */
 /*   probes. Also need to garbage collect the shadow proc structure,  */
@@ -1157,6 +1283,17 @@ void
 rw_exit(krwlock_t *p)
 {
 	TODO();
+}
+/**********************************************************************/
+/*   Utility  routine  for debugging, mostly not needed. Turn on all  */
+/*   writes  to the console - may be needed when debugging low level  */
+/*   interrupts which crash the box.   				      */
+/**********************************************************************/
+void
+set_console_on(int flag)
+{	int	mode = flag ? 7 : 0;
+	int *console_printk = get_proc_addr("console_printk");
+	console_printk[0] = mode;
 }
 /**********************************************************************/
 /*   Get a static symbol.					      */
@@ -1498,8 +1635,19 @@ dtracedrv_release(struct inode *inode, struct file *file)
 static ssize_t
 dtracedrv_read(struct file *fp, char __user *buf, size_t len, loff_t *off)
 {
-//HERE();
-	return -EIO;
+/*
+long *sys_call_table = get_proc_addr("sys_call_table");
+printk("sys_call_table=%p %lx\n", sys_call_table, sys_call_table[0]);
+long x = *sys_call_table;
+page_perms_t perms;
+
+mem_set_writable((unsigned long) sys_call_table, &perms);
+sys_call_table[0] = x;
+mem_unset_writable(&perms);
+printk("Line %d\n", __LINE__);
+*/
+return -EIO;
+
 }
 # if 0
 static int proc_calc_metrics(char *page, char **start, off_t off,
@@ -1580,9 +1728,17 @@ static struct proc_dir_entry *dir;
 	/*   Initialise   the   cpu_list   which  the  */
 	/*   dtrace_buffer_alloc  code  wants when we  */
 	/*   go into a GO state.		       */
+	/*   Only  allocate  space  for the number of  */
+	/*   online   cpus.   If   number   of   cpus  */
+	/*   increases, we wont be able to do per-cpu  */
+	/*   for them - we need to realloc this array  */
+	/*   and/or force out the clients.	       */
 	/***********************************************/
-	cpu_list = (cpu_t *) kzalloc(sizeof *cpu_list * NR_CPUS, GFP_KERNEL);
-	for (i = 0; i < NR_CPUS; i++) {
+	nr_cpus = num_online_cpus();
+	cpu_table = (cpu_t *) kzalloc(sizeof *cpu_table * nr_cpus, GFP_KERNEL);
+	cpu_core = (cpu_core_t *) kzalloc(sizeof *cpu_core * nr_cpus, GFP_KERNEL);
+	cpu_list = (cpu_t *) kzalloc(sizeof *cpu_list * nr_cpus, GFP_KERNEL);
+	for (i = 0; i < nr_cpus; i++) {
 		cpu_list[i].cpuid = i;
 		cpu_list[i].cpu_next = &cpu_list[i+1];
 		/***********************************************/
@@ -1592,8 +1748,8 @@ static struct proc_dir_entry *dir;
 		cpu_list[i].cpu_next_onln = &cpu_list[i+1];
 		mutex_init(&cpu_list[i].cpu_ft_lock);
 		}
-	cpu_list[NR_CPUS-1].cpu_next = cpu_list;
-	for (i = 0; i < CONFIG_NR_CPUS; i++) {
+	cpu_list[nr_cpus-1].cpu_next = cpu_list;
+	for (i = 0; i < nr_cpus; i++) {
 		mutex_init(&cpu_core[i].cpuc_pid_lock);
 	}
 
