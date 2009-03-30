@@ -12,61 +12,58 @@
 #include "dtrace_linux.h"
 #include <sys/dtrace_impl.h>
 #include "dtrace_proto.h"
-//#include <asm/cmpxchg_32.h>
-
-# define	SWAP_REG(a, b) \
-	"push " #a "\n" \
-	"push " #b "\n" \
-	"pop  " #a "\n" \
-	"pop  " #b "\n"
-
 
 extern dtrace_id_t		dtrace_probeid_error;	/* special ERROR probe */
 
+/**********************************************************************/
+/*   Return callers frame pointer.				      */
+/**********************************************************************/
 greg_t
 dtrace_getfp(void)
 {
-
-	__asm(
-#if defined(__amd64)
-		"movq	%rbp, %rax\n"
-		"ret"
-
-#elif defined(__i386)
-
-# if defined(CONFIG_FRAME_POINTER)
-		"movl	%ebp, %eax\n"
-		"ret"
-# else
-		"movl	(%esp), %eax\n"
-		"ret"
-# endif
-
-#endif	/* __i386 */
-	);
-	return 0; // notreached
+	return (greg_t) __builtin_frame_address(1);
 }
 
 #if defined(__amd64)
 uint32_t
 dtrace_cas32(uint32_t *target, uint32_t cmp, uint32_t new)
 {
+	return cmpxchg(target, cmp, new);
+/*
 	__asm(
 		"movl	%esi, %eax\n"
 		"lock\n"
 		"cmpxchgl %edx, (%rdi)\n"
 		);
+*/
 	return 0;
 }
-
+void
+fred(volatile long *ptr)
+{
+	(*ptr)++;
+	(*ptr)--;
+}
 void *
 dtrace_casptr(void *target, void *cmp, void *new)
 {
+	return cmpxchg((void **) target, cmp, new);
+/*
+	if (*(void **) target == cmp) {
+		printk("swapping...\n");
+		*(void **) target = new;
+		printk("done\n");
+	}
+return 0;
+	return cmpxchg64((void **) target, cmp, new);
+*/
+/*
 	__asm(
 		"movq	%rsi, %rax\n"
 		"lock\n"
 		"cmpxchgq %rdx, (%rdi)\n"
 		);
+*/
 	return 0;
 }
 
@@ -112,21 +109,16 @@ dtrace_casptr(void *target, void *cmp, void *new)
 
 #endif	/* __i386 */
 
+/**********************************************************************/
+/*   Used in probe mode to get the n'th caller, but GCC, nor can any  */
+/*   compiler  really  do  this  well,  so  dtrace will default to a  */
+/*   slower,   and   equally   bad   way   to  do  things.  (If  you  */
+/*   -fomit-frame-pointer, you lose, but thats life).		      */
+/**********************************************************************/
 uintptr_t
 dtrace_caller(int arg)
 {
-	__asm(
-#if defined(__amd64)
-	
-		"movq	$-1, %rax\n"
-
-#elif defined(__i386)
-
-		"movl	$-1, %eax\n"
-
-#endif	/* __i386 */
-		);
-	return 0; // notreached
+	return -1;
 }
 
 /*ARGSUSED*/
@@ -146,11 +138,15 @@ dtrace_copy(uintptr_t src, uintptr_t dest, size_t size)
 		"ret\n"
 		);
 
-#elif defined(__i386)
+#else
 	memcpy((void *) dest, (void *) src, size);
 #endif	/* __i386 */
 }
 
+/**********************************************************************/
+/*   I  think  this  function  wants to detect a fault when touching  */
+/*   user space...so we may need to change this to copyin/out.	      */
+/**********************************************************************/
 /*ARGSUSED*/
 void
 dtrace_copystr(uintptr_t uaddr, uintptr_t kaddr, size_t size,
@@ -224,6 +220,43 @@ dtrace_fuword64_nocheck(void *addr)
 	return *(uint64_t *) addr;
 }
 /**********************************************************************/
+/*   Disable  interrupts (they may be disabled already), but let the  */
+/*   caller nest the interrupt disable.				      */
+/**********************************************************************/
+dtrace_icookie_t
+dtrace_interrupt_disable(void)
+{	long	ret;
+
+#if defined(__amd64)
+	__asm(
+        	"pushfq\n"
+        	"popq    %%rax\n"
+        	"cli\n"
+		: "=a" (ret)
+	);
+	return ret;
+#elif defined(__i386)
+
+	__asm(
+		"pushf\n"
+		"pop %%eax\n"
+		"cli\n"
+		: "=a" (ret)
+		:
+	);
+	return ret;
+
+//	/***********************************************/
+//	/*   We  get kernel warnings because we break  */
+//	/*   the  rules  if  we  do the equivalent to  */
+//	/*   x86-64. This seems to work.	       */
+//	/***********************************************/
+//	raw_local_irq_disable();
+////	native_irq_disable();
+//	return 0;
+# endif
+}
+/**********************************************************************/
 /*   This   routine   restores   interrupts   previously   saved  by  */
 /*   dtrace_interrupt_disable.  This  allows  nested disable/enable,  */
 /*   which  is  what  dtrace_probe()  is assuming, since we can come  */
@@ -232,6 +265,7 @@ dtrace_fuword64_nocheck(void *addr)
 void
 dtrace_interrupt_enable(dtrace_icookie_t flags)
 {
+
 #if defined(__amd64)
 	__asm(
 	        "pushq   %0\n"
@@ -271,6 +305,59 @@ dtrace_probe_error(dtrace_state_t *state, dtrace_epid_t epid, int which,
 		(uintptr_t) state, epid, which, fault, fltoffs);
 }
 
+/**********************************************************************/
+/*   We try and mix C + Assembler. We have to be very careful with C  */
+/*   functions  which  may have variable calling/entry sequences and  */
+/*   break  our expectations on some of the more delicate functions.  */
+/*   So  we  have  a  dummy function which can contain the assembler  */
+/*   with our own explicit (or missing) stack frame setup.	      */
+/*   								      */
+/*   We  could  do  this  all  in a *.S file, but I didnt want to do  */
+/*   that,  especially  as most of the functions here can be done in  */
+/*   plain C.							      */
+/**********************************************************************/
+# define FUNCTION(x) 			\
+        ".text\n" 			\
+	".globl " #x "\n" 		\
+        ".type   " #x ", @function\n"	\
+	#x ":\n"
+
+void
+asm_placeholder(void)
+{
+#if defined(__amd64)
+	__asm(
+		FUNCTION(dtrace_membar_consumer)
+        	/* AMD Software Optimization Guide - Section 6.2 */
+		"rep\n"
+		"ret\n"
+
+		FUNCTION(dtrace_membar_producer)
+        	/* AMD Software Optimization Guide - Section 6.2 */
+		"rep\n"
+		"ret\n"
+		
+		);
+#else
+	__asm(
+		FUNCTION(dtrace_membar_consumer)
+		"sfence\n"
+		"ret\n"
+
+		FUNCTION(dtrace_membar_producer)
+		"sfence\n"
+		"ret\n"
+
+		);
+#endif
+}
+
+/**********************************************************************/
+/*   Stubbed  out  code  --  this  was the original, but its getting  */
+/*   painful  to  support 32+64 * versions of GCC and kernel compile  */
+/*   options.							      */
+/**********************************************************************/
+#if 0
 void dtrace_membar_consumer(void)
 {
 #if defined(__amd64)
@@ -304,7 +391,9 @@ void dtrace_membar_producer(void)
 	/*   down.				       */
 	/***********************************************/
 	__asm(
+"nop\n"
 		"call 0f\n"
+"nop\n"
 		"jmp 1f\n"
 "0:\n"
 		"rep\n"
@@ -321,40 +410,4 @@ void dtrace_membar_producer(void)
 	__asm("sfence\n");
 #endif
 }
-/**********************************************************************/
-/*   Disable  interrupts (they may be disabled already), but let the  */
-/*   caller nest the interrupt disable.				      */
-/**********************************************************************/
-dtrace_icookie_t
-dtrace_interrupt_disable(void)
-{	long	ret;
-
-#if defined(__amd64)
-	__asm(
-        	"pushfq\n"
-        	"popq    %%rax\n"
-        	"cli\n"
-		: "=a" (ret)
-	);
-	return ret;
-#elif defined(__i386)
-
-	__asm(
-		"pushf\n"
-		"pop %%eax\n"
-		"cli\n"
-		: "=a" (ret)
-		:
-	);
-	return ret;
-
-//	/***********************************************/
-//	/*   We  get kernel warnings because we break  */
-//	/*   the  rules  if  we  do the equivalent to  */
-//	/*   x86-64. This seems to work.	       */
-//	/***********************************************/
-//	raw_local_irq_disable();
-////	native_irq_disable();
-//	return 0;
-# endif
-}
+#endif
