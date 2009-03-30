@@ -7511,8 +7511,8 @@ dtrace_probe_create(dtrace_provider_id_t prov, const char *mod,
 	dtrace_provider_t *provider = (dtrace_provider_t *)prov;
 	dtrace_id_t id;
 
-//HERE();
-//printk("creating: %s:%s:%s\n", mod, func, name);
+HERE();
+printk("creating: %s:%s:%s\n", mod, func, name);
 	if (provider == dtrace_provider) {
 		ASSERT(MUTEX_HELD(&dtrace_lock));
 	} else {
@@ -7524,7 +7524,7 @@ dtrace_probe_create(dtrace_provider_id_t prov, const char *mod,
 
 	probe = kmem_zalloc(sizeof (dtrace_probe_t), KM_SLEEP);
 	if (probe == NULL) {
-		printk("dtrace_probe_create: Cannot alloc sizeof(dtrace_probe_t) %d\n", (int) sizeof(dtrace_probe_t));
+		printk("dtrace_probe_create: Cannot alloc sizeof(dtrace_probe_t) %d\n", sizeof(dtrace_probe_t));
 		return 0;
 	}
 
@@ -7540,20 +7540,24 @@ dtrace_probe_create(dtrace_provider_id_t prov, const char *mod,
 	dtrace_hash_add(dtrace_bymod, probe);
 	dtrace_hash_add(dtrace_byfunc, probe);
 	dtrace_hash_add(dtrace_byname, probe);
-//HERE();
-//printk("id=%d nprobes=%d\n", id, dtrace_nprobes);
+HERE();
+printk("id=%d nprobes=%d\n", id, dtrace_nprobes);
 
 	if (id - 1 >= dtrace_nprobes) {
 		size_t osize = dtrace_nprobes * sizeof (dtrace_probe_t *);
 		size_t nsize = osize << 1;
 
+HERE();
+printk("osize=%d nsize=%d\n", osize, nsize);
 		if (nsize == 0) {
 			ASSERT(osize == 0);
 			ASSERT(dtrace_probes == NULL);
 			nsize = sizeof (dtrace_probe_t *);
 		}
 
+HERE();
 		probes = kmem_zalloc(nsize, KM_SLEEP);
+HERE();
 
 		if (dtrace_probes == NULL) {
 			ASSERT(osize == 0);
@@ -7562,17 +7566,23 @@ dtrace_probe_create(dtrace_provider_id_t prov, const char *mod,
 		} else {
 			dtrace_probe_t **oprobes = dtrace_probes;
 
+HERE();
+printk("bcopy(%p, %p, %d)\n", oprobes, probes, osize);
 			bcopy(oprobes, probes, osize);
 			dtrace_membar_producer();
+HERE();
 			dtrace_probes = probes;
 
+HERE();
 			dtrace_sync();
+HERE();
 
 			/*
 			 * All CPUs are now seeing the new probes array; we can
 			 * safely free the old array.
 			 */
 			kmem_free(oprobes, osize);
+HERE();
 			dtrace_nprobes <<= 1;
 		}
 
@@ -7581,10 +7591,10 @@ dtrace_probe_create(dtrace_provider_id_t prov, const char *mod,
 
 	ASSERT(dtrace_probes[id - 1] == NULL);
 	dtrace_probes[id - 1] = probe;
+HERE();
 
 	if (provider != dtrace_provider)
 		mutex_exit(&dtrace_lock);
-HERE();
 
 	return (id);
 }
